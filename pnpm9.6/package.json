@@ -1,0 +1,9 @@
+{
+  "name": "dummy-test-pnpm9.6",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "dummy-package": "file:../dummy-package"
+  },
+  "packageManager": "pnpm@9.6.0"
+}
