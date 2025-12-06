@@ -1,0 +1,89 @@
+name: Test pnpm postinstall
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  postinstall-matrix:
+    name: Postinstall matrix
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        projectDir: [pnpm9.6, pnpm9.15]
+        ignoreScripts: [true, false]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Show pnpm version
+        working-directory: ${{ matrix.projectDir }}
+        run: pnpm --version
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.projectDir }}
+        run: |
+          if [ "${{ matrix.ignoreScripts }}" = "true" ]; then
+            echo "Running: pnpm install --no-lockfile --ignore-scripts"
+            pnpm install --no-lockfile --ignore-scripts
+          else
+            echo "Running: pnpm install --no-lockfile"
+            pnpm install --no-lockfile
+          fi
+
+      - name: Verify POSTINSTALL_WAS_HERE
+        working-directory: ${{ matrix.projectDir }}
+        run: |
+          FILE="node_modules/dummy-package/POSTINSTALL_WAS_HERE"
+          echo "Checking $FILE (ignoreScripts=${{ matrix.ignoreScripts }})"
+
+          if [ "${{ matrix.ignoreScripts }}" = "true" ]; then
+            # Case: scripts disabled → file must NOT exist
+            if [ -f "$FILE" ]; then
+              echo "❌ Expected $FILE NOT to exist when --ignore-scripts is used, but it exists."
+              exit 1
+            else
+              echo "✅ File not present as expected with --ignore-scripts."
+            fi
+          else
+            # Case: scripts enabled → file MUST exist
+            if [ -f "$FILE" ]; then
+              echo "✅ File present as expected when scripts run."
+            else
+              echo "❌ Expected $FILE to exist when scripts run, but it is missing."
+              exit 1
+            fi
+          fi
+
+      - name: Append case to job summary
+        if: success()
+        run: |
+          echo "### ${{ matrix.projectDir }} (ignoreScripts=${{ matrix.ignoreScripts }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Status: ✅ passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+  summary:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: postinstall-matrix
+    if: always()
+    steps:
+      - name: Overall result
+        run: |
+          echo "Matrix job result: ${{ needs.postinstall-matrix.result }}"
