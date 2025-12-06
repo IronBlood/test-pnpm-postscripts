@@ -3,6 +3,6 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "postinstall": "echo helloworld"
+    "postinstall": "node postinstall.js"
   }
 }
